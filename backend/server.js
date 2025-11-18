@@ -5,6 +5,7 @@ import connectDB from './config/db.js';
 import userRoutes from './routes/userRoutes.js';
 import listingRoutes from './routes/listingRoutes.js';
 import inquiryRoutes from './routes/inquiryRoutes.js'; // <-- 1. IMPORT INQUIRY ROUTES
+import statsRoutes from './routes/statsRoutes.js'; // <-- 1. IMPORT
 
 // ... (dotenv.config() and connectDB() are here) ...
 dotenv.config();
@@ -25,6 +26,7 @@ app.get('/', (req, res) => {
 app.use('/api/users', userRoutes);
 app.use('/api/listings', listingRoutes);
 app.use('/api/inquiries', inquiryRoutes); // <-- 2. MOUNT THE ROUTES
+app.use('/api/stats', statsRoutes); // <-- 2. MOUNT HERE
 
 // ... (Error handling and app.listen() are here) ...
 app.listen(PORT, () => {
