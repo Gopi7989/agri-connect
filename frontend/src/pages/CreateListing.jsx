@@ -40,7 +40,7 @@ const CreateListing = () => {
         },
       };
 
-      await axios.post('http://localhost:5000/api/listings', formData, config);
+      await axios.post('https://agri-connect-api-1msi.onrender.com/api/listings', formData, config);
 
       toast.success('Listing Created Successfully!');
       navigate('/marketplace'); // Go back to the market to see it

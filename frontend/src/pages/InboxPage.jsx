@@ -13,7 +13,7 @@ const InboxPage = () => {
         const config = {
           headers: { Authorization: `Bearer ${user.token}` },
         };
-        const response = await axios.get('http://localhost:5000/api/inquiries/my-inquiries', config);
+        const response = await axios.get('https://agri-connect-api-1msi.onrender.com/api/inquiries/my-inquiries', config);
         setInquiries(response.data);
         setLoading(false);
       } catch (error) {

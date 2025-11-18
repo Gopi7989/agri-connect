@@ -59,7 +59,7 @@ const Marketplace = () => {
         headers: { Authorization: `Bearer ${user.token}` },
       };
 
-      await axios.post('http://localhost:5000/api/inquiries', {
+      await axios.post('https://agri-connect-api-1msi.onrender.com/api/inquiries', {
         listingId: selectedListing._id,
         message: message
       }, config);

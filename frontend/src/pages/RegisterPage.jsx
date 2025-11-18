@@ -46,7 +46,7 @@ const RegisterPage = () => {
     try {
       // --- THE API CALL ---
       // We connect to the backend URL we built earlier
-      const response = await axios.post('http://localhost:5000/api/users/register', userData);
+      const response = await axios.post('https://agri-connect-api-1msi.onrender.com/api/users/register', userData);
 
       if (response.data) {
         toast.success('Registration Successful! Please Login.');

@@ -26,7 +26,7 @@ const LoginPage = () => {
 
     try {
       // 1. Call the Backend Login API
-      const response = await axios.post('http://localhost:5000/api/users/login', {
+      const response = await axios.post('https://agri-connect-api-1msi.onrender.com/api/users/login', {
         mobileNumber,
         password,
       });
