@@ -20,7 +20,7 @@ const Marketplace = () => {
   useEffect(() => {
     const fetchListings = async () => {
       try {
-        const response = await axios.get('http://localhost:5000/api/listings');
+        const response = await axios.get(' https://agri-connect-api-1msi.onrender.com/api/listings');
         setListings(response.data);
         setLoading(false);
       } catch (error) {
