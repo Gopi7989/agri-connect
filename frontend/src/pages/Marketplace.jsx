@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useContext } from 'react';
-import axios from 'axios';
+// REMOVED: import axios from 'axios'; <-- Reducing bundle size
 import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import AuthContext from '../context/AuthContext';
@@ -17,28 +17,32 @@ const Marketplace = () => {
   const [selectedListing, setSelectedListing] = useState(null);
   const [message, setMessage] = useState('');
 
-  // --- SMART IMAGE HELPER (New!) ---
-  // This picks a photo based on the crop name
+  // --- SMART IMAGE HELPER (Optimized) ---
+  // Added '&fm=webp' to all URLs for faster loading formats
   const getCropImage = (cropName) => {
     const name = cropName.toLowerCase();
-    if (name.includes('tomato')) return 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?auto=format&fit=crop&w=800&q=60';
-    if (name.includes('grape')) return 'https://images.unsplash.com/photo-1537640538965-175287a5b501?auto=format&fit=crop&w=800&q=60';
-    if (name.includes('spinach')) return 'https://images.unsplash.com/photo-1576045057995-568f588f82fb?auto=format&fit=crop&w=800&q=60';
-    if (name.includes('cotton')) return 'https://images.unsplash.com/photo-1606041008023-472dfb5e530f?auto=format&fit=crop&w=800&q=60';
-    if (name.includes('onion')) return 'https://images.unsplash.com/photo-1618512496248-a07fe83aa8cb?auto=format&fit=crop&w=800&q=60';
-    if (name.includes('rice') || name.includes('paddy')) return 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=800&q=60';
-    if (name.includes('wheat')) return 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=800&q=60';
-    if (name.includes('mango')) return 'https://images.unsplash.com/photo-1553279768-865429fa0078?auto=format&fit=crop&w=800&q=60';
-    // Default Fallback Image
-    return 'https://images.unsplash.com/photo-1495107334309-fcf20504a5ab?auto=format&fit=crop&w=800&q=60'; 
+    const baseParams = '?auto=format&fit=crop&w=600&q=70&fm=webp'; // Reduced width & added WebP
+    
+    if (name.includes('tomato')) return `https://images.unsplash.com/photo-1592924357228-91a4daadcfea${baseParams}`;
+    if (name.includes('grape')) return `https://images.unsplash.com/photo-1537640538965-175287a5b501${baseParams}`;
+    if (name.includes('spinach')) return `https://images.unsplash.com/photo-1576045057995-568f588f82fb${baseParams}`;
+    if (name.includes('cotton')) return `https://images.unsplash.com/photo-1606041008023-472dfb5e530f${baseParams}`;
+    if (name.includes('onion')) return `https://images.unsplash.com/photo-1618512496248-a07fe83aa8cb${baseParams}`;
+    if (name.includes('rice') || name.includes('paddy')) return `https://images.unsplash.com/photo-1586201375761-83865001e31c${baseParams}`;
+    if (name.includes('wheat')) return `https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b${baseParams}`;
+    if (name.includes('mango')) return `https://images.unsplash.com/photo-1553279768-865429fa0078${baseParams}`;
+    // Default Fallback
+    return `https://images.unsplash.com/photo-1495107334309-fcf20504a5ab${baseParams}`; 
   };
 
-  // 1. Fetch Listings
+  // 1. Fetch Listings (Using native fetch)
   useEffect(() => {
     const fetchListings = async () => {
       try {
-        const response = await axios.get('https://agri-connect-api-1msi.onrender.com/api/listings');
-        setListings(response.data);
+        const response = await fetch('https://agri-connect-api-1msi.onrender.com/api/listings');
+        if (!response.ok) throw new Error('Failed to fetch');
+        const data = await response.json();
+        setListings(data);
         setLoading(false);
       } catch (error) {
         console.error("Error fetching listings:", error);
@@ -48,7 +52,7 @@ const Marketplace = () => {
     fetchListings();
   }, []);
 
-  // 2. Filter Logic (Enhanced)
+  // 2. Filter Logic (Unchanged)
   const filteredListings = listings.filter((listing) => {
     const matchesSearch = listing.cropName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           listing.location_district.toLowerCase().includes(searchTerm.toLowerCase());
@@ -66,25 +70,36 @@ const Marketplace = () => {
     setShowModal(true);
   };
 
-  // 4. Send Message
+  // 4. Send Message (Using native fetch with headers)
   const handleSendMessage = async () => {
     if (!message.trim()) {
       toast.error("Please enter a message.");
       return;
     }
     try {
-      const config = {
-        headers: { Authorization: `Bearer ${user.token}` },
-      };
-      await axios.post('https://agri-connect-api-1msi.onrender.com/api/inquiries', {
-        listingId: selectedListing._id,
-        message: message
-      }, config);
+      const response = await fetch('https://agri-connect-api-1msi.onrender.com/api/inquiries', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user.token}`, // Manually add token
+        },
+        body: JSON.stringify({
+          listingId: selectedListing._id,
+          message: message
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to send message');
+      }
+
       toast.success('Message sent to farmer!');
       setShowModal(false);
       setMessage('');
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to send message');
+      toast.error(error.message);
     }
   };
 
@@ -103,7 +118,6 @@ const Marketplace = () => {
         
         {/* --- Controls Section --- */}
         <div style={styles.controls}>
-          {/* Search */}
           <input
             type="text"
             placeholder="🔍 Search crops or districts..."
@@ -112,7 +126,6 @@ const Marketplace = () => {
             style={styles.searchBar}
           />
 
-          {/* Filter Chips */}
           <div style={styles.filters}>
             {['All', 'Tomato', 'Rice', 'Cotton', 'Fruits'].map(filter => (
               <button 
@@ -125,7 +138,6 @@ const Marketplace = () => {
             ))}
           </div>
 
-          {/* Add Button (For Farmers) */}
           {user && user.role === 'farmer' && (
             <Link to="/create-listing" style={styles.addButton}>
               + Sell Produce
@@ -147,6 +159,11 @@ const Marketplace = () => {
                     <img 
                       src={getCropImage(listing.cropName)} 
                       alt={listing.cropName} 
+                      // --- LAZY LOADING OPTIMIZATION ---
+                      loading="lazy"
+                      decoding="async"
+                      width="100%"
+                      height="100%"
                       style={styles.cardImage} 
                     />
                     <div style={styles.badge(listing.status)}>{listing.status}</div>
@@ -166,7 +183,6 @@ const Marketplace = () => {
                       </p>
                     </div>
 
-                    {/* Action Button */}
                     {user && user.role === 'buyer' ? (
                        <button 
                          style={styles.contactButton}

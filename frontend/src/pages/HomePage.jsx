@@ -1,21 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import axios from 'axios';
+// REMOVED: import axios from 'axios';  <-- Reducing bundle size
 
 const HomePage = () => {
-  // State for stats (Default to 0)
   const [stats, setStats] = useState({
     farmers: 0,
     listings: 0,
     districts: 0
   });
 
-  // Fetch real stats from backend on load
+  // Fetch real stats using native fetch (No Axios)
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const response = await axios.get('https://agri-connect-api-1msi.onrender.com/api/stats');
-        setStats(response.data);
+        const response = await fetch('https://agri-connect-api-1msi.onrender.com/api/stats');
+        if (!response.ok) throw new Error('Network response was not ok');
+        const data = await response.json();
+        setStats(data);
       } catch (error) {
         console.error("Error fetching stats:", error);
       }
@@ -117,7 +118,11 @@ const HomePage = () => {
 // --- CSS STYLES ---
 const styles = {
   hero: {
-    backgroundImage: 'url("https://images.unsplash.com/photo-1500382017468-9049fed747ef?ixlib=rb-1.2.1&auto=format&fit=crop&w=1920&q=80")',
+    // OPTIMIZATION: 
+    // 1. Reduced width to 1200px (1920px is often overkill for bg images)
+    // 2. Added 'fm=webp' to convert to WebP format (smaller file size)
+    // 3. Lowered quality 'q=70' (imperceptible difference, much faster load)
+    backgroundImage: 'url("https://images.unsplash.com/photo-1500382017468-9049fed747ef?ixlib=rb-1.2.1&auto=format&fit=crop&w=1200&q=70&fm=webp")',
     backgroundSize: 'cover',
     backgroundPosition: 'center',
     color: 'white',
