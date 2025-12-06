@@ -12,6 +12,7 @@ const listingSchema = new mongoose.Schema(
     cropName: {
       type: String,
       required: [true, 'Please enter the crop name'],
+      index: true, // Index for faster filtering
     },
     quantity: {
       type: String,
@@ -22,6 +23,7 @@ const listingSchema = new mongoose.Schema(
       required: true,
       enum: ['Available Now', 'Expected Harvest'], // Only allows these two values
       default: 'Available Now',
+      index: true, // Index for faster filtering
     },
     harvestDate: {
       // This is optional, for "Expected Harvest"
@@ -32,12 +34,17 @@ const listingSchema = new mongoose.Schema(
     location_district: {
       type: String,
       required: true,
+      index: true, // Index for faster search
     },
   },
   {
     timestamps: true, // Automatically adds createdAt and updatedAt
   }
 );
+
+// Compound index for common search patterns
+listingSchema.index({ createdAt: -1 }); // Index for sorting by newest
+listingSchema.index({ cropName: 1, location_district: 1 }); // Compound index for search
 
 const Listing = mongoose.model('Listing', listingSchema);
 

@@ -35,17 +35,37 @@ router.post('/', protect, async (req, res) => {
 });
 
 
-// --- @desc:    Get all listings
-// --- @route:   GET /api/listings
+// --- @desc:    Get all listings with pagination
+// --- @route:   GET /api/listings?page=1&limit=12
 // --- @access:  Public
 router.get('/', async (req, res) => {
   try {
-    // Find all listings and sort them by 'createdAt' (newest first)
-    // We also 'populate' the 'user' field
-    // This replaces the user's ID with their name from the User collection
-    const listings = await Listing.find({}).sort({ createdAt: -1 }).populate('user', 'name');
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 12;
+    const skip = (page - 1) * limit;
 
-    res.status(200).json(listings);
+    // Find listings with pagination, only fetch required fields
+    const listings = await Listing.find({})
+      .select('cropName quantity status harvestDate location_district createdAt user')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate('user', 'name')
+      .lean(); // Use lean() for faster read-only queries
+
+    // Get total count for pagination info
+    const total = await Listing.countDocuments({});
+
+    res.status(200).json({
+      success: true,
+      data: listings,
+      pagination: {
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit)
+      }
+    });
 
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error: error.message });

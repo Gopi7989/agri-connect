@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useContext } from 'react';
+import React, { useEffect, useState, useContext, useCallback, useRef } from 'react';
 // REMOVED: import axios from 'axios'; <-- Reducing bundle size
 import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
@@ -11,6 +11,9 @@ const Marketplace = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState('All');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const observerTarget = useRef(null);
 
   // --- MODAL STATE ---
   const [showModal, setShowModal] = useState(false);
@@ -19,7 +22,7 @@ const Marketplace = () => {
 
   // --- SMART IMAGE HELPER (Optimized) ---
   // Added '&fm=webp' to all URLs for faster loading formats
-  const getCropImage = (cropName) => {
+  const getCropImage = useCallback((cropName) => {
     const name = cropName.toLowerCase();
     const baseParams = '?auto=format&fit=crop&w=600&q=70&fm=webp'; // Reduced width & added WebP
     
@@ -33,27 +36,60 @@ const Marketplace = () => {
     if (name.includes('mango')) return `https://images.unsplash.com/photo-1553279768-865429fa0078${baseParams}`;
     // Default Fallback
     return `https://images.unsplash.com/photo-1495107334309-fcf20504a5ab${baseParams}`; 
-  };
-
-  // 1. Fetch Listings (Using native fetch)
-  useEffect(() => {
-    const fetchListings = async () => {
-      try {
-        const response = await fetch('https://agri-connect-api-1msi.onrender.com/api/listings');
-        if (!response.ok) throw new Error('Failed to fetch');
-        const data = await response.json();
-        setListings(data);
-        setLoading(false);
-      } catch (error) {
-        console.error("Error fetching listings:", error);
-        setLoading(false);
-      }
-    };
-    fetchListings();
   }, []);
 
-  // 2. Filter Logic (Unchanged)
-  const filteredListings = listings.filter((listing) => {
+  // 1. Fetch Listings with Pagination (Using native fetch)
+  const fetchListings = useCallback(async (pageNum = 1, isLoadMore = false) => {
+    if (!isLoadMore) setLoading(true);
+    try {
+      const response = await fetch(
+        `https://agri-connect-api-1msi.onrender.com/api/listings?page=${pageNum}&limit=12`
+      );
+      if (!response.ok) throw new Error('Failed to fetch');
+      const result = await response.json();
+      
+      // Handle both new paginated format and old format
+      const listingsData = result.data || result;
+      const totalPagesCount = result.pagination?.pages || 1;
+      
+      if (isLoadMore) {
+        setListings(prev => [...prev, ...listingsData]);
+      } else {
+        setListings(listingsData);
+      }
+      
+      setTotalPages(totalPagesCount);
+      setLoading(false);
+    } catch (error) {
+      console.error("Error fetching listings:", error);
+      setLoading(false);
+      toast.error("Failed to load marketplace data");
+    }
+  }, []);
+
+  // Fetch initial listings
+  useEffect(() => {
+    fetchListings(1);
+  }, [fetchListings]);
+
+  // Intersection Observer for infinite scroll
+  useEffect(() => {
+    const observer = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && page < totalPages && !loading) {
+        setPage(prev => prev + 1);
+        fetchListings(page + 1, true);
+      }
+    }, { threshold: 0.1 });
+
+    if (observerTarget.current) {
+      observer.observe(observerTarget.current);
+    }
+
+    return () => observer.disconnect();
+  }, [page, totalPages, loading, fetchListings]);
+
+  // 2. Filter Logic (Client-side for already loaded data)
+  const filteredListings = (listings || []).filter((listing) => {
     const matchesSearch = listing.cropName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           listing.location_district.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesFilter = activeFilter === 'All' || listing.cropName.toLowerCase().includes(activeFilter.toLowerCase());
@@ -61,17 +97,17 @@ const Marketplace = () => {
   });
 
   // 3. Handle "Contact" Click
-  const handleContactClick = (listing) => {
+  const handleContactClick = useCallback((listing) => {
     if (!user) {
       toast.error("Please login to contact the farmer.");
       return;
     }
     setSelectedListing(listing);
     setShowModal(true);
-  };
+  }, [user]);
 
   // 4. Send Message (Using native fetch with headers)
-  const handleSendMessage = async () => {
+  const handleSendMessage = useCallback(async () => {
     if (!message.trim()) {
       toast.error("Please enter a message.");
       return;
@@ -81,7 +117,7 @@ const Marketplace = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${user.token}`, // Manually add token
+          'Authorization': `Bearer ${user.token}`,
         },
         body: JSON.stringify({
           listingId: selectedListing._id,
@@ -101,7 +137,7 @@ const Marketplace = () => {
     } catch (error) {
       toast.error(error.message);
     }
-  };
+  }, [message, selectedListing, user]);
 
   return (
     <div style={{ backgroundColor: '#f8f9fa', minHeight: '100vh', paddingBottom: '50px' }}>
@@ -146,63 +182,72 @@ const Marketplace = () => {
         </div>
 
         {/* --- Listings Grid --- */}
-        {loading ? (
+        {loading && listings.length === 0 ? (
           <div style={{textAlign: 'center', marginTop: '50px', color: '#666'}}>Loading market data...</div>
         ) : (
-          <div style={styles.grid}>
-            {filteredListings.length > 0 ? (
-              filteredListings.map((listing) => (
-                <div key={listing._id} style={styles.card}>
-                  
-                  {/* Listing Image */}
-                  <div style={styles.imageContainer}>
-                    <img 
-                      src={getCropImage(listing.cropName)} 
-                      alt={listing.cropName} 
-                      // --- LAZY LOADING OPTIMIZATION ---
-                      loading="lazy"
-                      decoding="async"
-                      width="100%"
-                      height="100%"
-                      style={styles.cardImage} 
-                    />
-                    <div style={styles.badge(listing.status)}>{listing.status}</div>
-                  </div>
-
-                  <div style={styles.cardContent}>
-                    <div style={{display:'flex', justifyContent:'space-between', alignItems:'start'}}>
-                      <h3 style={styles.cropName}>{listing.cropName}</h3>
-                      <span style={styles.quantityTag}>{listing.quantity}</span>
-                    </div>
+          <>
+            <div style={styles.grid}>
+              {filteredListings.length > 0 ? (
+                filteredListings.map((listing) => (
+                  <div key={listing._id} style={styles.card}>
                     
-                    <div style={styles.details}>
-                      <p>📍 <strong>Location:</strong> {listing.location_district}</p>
-                      <p>👨‍🌾 <strong>Farmer:</strong> {listing.user?.name || 'Unknown'}</p>
-                      <p style={{ fontSize: '0.8rem', color: '#888', marginTop: '5px' }}>
-                        Posted: {new Date(listing.createdAt).toLocaleDateString()}
-                      </p>
+                    {/* Listing Image */}
+                    <div style={styles.imageContainer}>
+                      <img 
+                        src={getCropImage(listing.cropName)} 
+                        alt={listing.cropName} 
+                        // --- LAZY LOADING OPTIMIZATION ---
+                        loading="lazy"
+                        decoding="async"
+                        width="100%"
+                        height="100%"
+                        style={styles.cardImage} 
+                      />
+                      <div style={styles.badge(listing.status)}>{listing.status}</div>
                     </div>
 
-                    {user && user.role === 'buyer' ? (
-                       <button 
-                         style={styles.contactButton}
-                         onClick={() => handleContactClick(listing)}
-                       >
-                         Message Farmer
-                       </button>
-                    ) : (
-                       <div style={{ height: '10px' }}></div>
-                    )}
+                    <div style={styles.cardContent}>
+                      <div style={{display:'flex', justifyContent:'space-between', alignItems:'start'}}>
+                        <h3 style={styles.cropName}>{listing.cropName}</h3>
+                        <span style={styles.quantityTag}>{listing.quantity}</span>
+                      </div>
+                      
+                      <div style={styles.details}>
+                        <p>📍 <strong>Location:</strong> {listing.location_district}</p>
+                        <p>👨‍🌾 <strong>Farmer:</strong> {listing.user?.name || 'Unknown'}</p>
+                        <p style={{ fontSize: '0.8rem', color: '#888', marginTop: '5px' }}>
+                          Posted: {new Date(listing.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+
+                      {user && user.role === 'buyer' ? (
+                         <button 
+                           style={styles.contactButton}
+                           onClick={() => handleContactClick(listing)}
+                         >
+                           Message Farmer
+                         </button>
+                      ) : (
+                         <div style={{ height: '10px' }}></div>
+                      )}
+                    </div>
                   </div>
+                ))
+              ) : (
+                <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '50px', color: '#888' }}>
+                  <h3>No listings found matching your search.</h3>
+                  <p>Try adjusting your filters or search term.</p>
                 </div>
-              ))
-            ) : (
-              <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '50px', color: '#888' }}>
-                <h3>No listings found matching your search.</h3>
-                <p>Try adjusting your filters or search term.</p>
+              )}
+            </div>
+
+            {/* Infinite scroll trigger */}
+            {page < totalPages && (
+              <div ref={observerTarget} style={{textAlign: 'center', padding: '20px', color: '#666'}}>
+                {loading && <div>Loading more listings...</div>}
               </div>
             )}
-          </div>
+          </>
         )}
       </div>
 

@@ -22,8 +22,24 @@ const inquirySchema = new mongoose.Schema(
     },
     message: {
       type: String,
-      required: [true, 'Please enter your message'],
+      // Made optional because a structured offer might be enough
+      required: false, 
     },
+    
+    // --- NEW FIELDS FOR BIDDING SYSTEM ---
+    offerPrice: {
+      type: Number, // The price the buyer is offering (e.g., 40 per kg)
+    },
+    offerQuantity: {
+      type: String, // The amount they want (e.g., "200kg")
+    },
+    bidStatus: {
+      type: String,
+      enum: ['pending', 'accepted', 'rejected'], // Tracks the deal status
+      default: 'pending',
+    },
+    // -------------------------------------
+
     // We can add a field to track if the farmer has seen it
     isRead: {
       type: Boolean,
